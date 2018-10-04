@@ -5,7 +5,6 @@ import markovify
 import random
 import re
 import string
-import operator
 import os.path
 
 my_notebook='params.data'
@@ -41,15 +40,13 @@ def punctuation_is_important(letters):
         letters += '.'
     return letters
 
-def punctuation_is_important_but_not_my_favorite(letters):
-    return re.sub(r'[-.,:;?!\n\s]','',letters)
-
-def what_is_cool(letters):
+def the_coolest_thing(letters):
     counter = collections.Counter(
-        filter(lambda letter: letter in string.printable,
-               punctuation_is_important_but_not_my_favorite(
-                   letters)))
-    return sorted(counter.items(), key=operator.itemgetter(1), reverse=False)[0][0]
+        filter(lambda letter: letter in '$%&*+-/<=>@^_`|~'))
+    if counter:
+        return counter.most_common(1)[0][0]
+    else:
+        return None
 
 # to write a pome, first I read my notes from my notebook -- I like to write
 # down what my favorite letter is, and what some of my favorite words are,
@@ -58,15 +55,16 @@ def what_is_cool(letters):
 # lines is a good length for a pome, and nothing will ever change my mind about
 # this. I think good punctuation is important for a pome.
 if args.write:
-    with open(my_notebook,'r') as notebook:
-        howto_pome = markovify.Text.from_json(notebook.read())
+    with open(my_notebook,'r') as my_notes:
+        my_notes = my_notes.read()
+        howto_pome = markovify.Text.from_json(my_notes)
 
     title = punctuation_is_important(howto_pome.make_sentence())
     content = ''
     for _ in range(random.randint(3,5)):
         sentence = punctuation_is_important(howto_pome.make_sentence())
         if sentence:
-            content += sentence
+            content += sentence + '\n'
 
     print(json.dumps({ 'title': title, 'content': content }))
 
@@ -74,8 +72,9 @@ if args.write:
 # important to look at how it's written. when pomes use my favorite letter,
 # that makes me happy.
 if args.critique:
-    with open(my_notebook,'r') as notebook_file:
-        my_fav_letter = json.loads(notebook_file.read())['my_fav_letter']
+    with open(my_notebook,'r') as my_notes:
+        my_notes = json.loads(my_notes.read())
+        my_fav_letter = my_notes['my_fav_letter']
 
     letters = punctuation_is_important_but_not_my_favorite(args.critique)
     points = collections.Counter(letters)[my_fav_letter] / float(len(letters))
@@ -86,13 +85,19 @@ if args.critique:
 # this is amazing, just look at that letter!" and then I really want to write
 # some pomes and use what I learned.
 if args.study:
-    new_fav_letter = what_is_cool(args.study)
-    letters = make_it_better(args.study, new_fav_letter)
+    with open(my_notebook,'r') as my_notes:
+        my_notes = json.loads(my_notes.read())
+        my_fav_letter = my_notes['my_fav_letter']
+
+    this_cool_thing = the_coolest_thing(args.study)
+    if this_cool_thing and random.random() < 0.3:
+        my_fav_letter = this_cool_thing
+    letters = make_it_better(args.study, my_fav_letter)
     howto_pome = PrettyPomeMaker(letters, retain_original=False)
 
-    with open(my_notebook,'w') as notebook_file:
-        notebook_dict = howto_pome.to_dict()
-        notebook_dict['my_fav_letter'] = new_fav_letter
-        notebook_file.write(json.dumps(notebook_dict))
+    with open(my_notebook,'w') as all_my_notes:
+        my_study_notes = howto_pome.to_dict()
+        my_study_notes['my_fav_letter'] = my_fav_letter
+        all_my_notes.write(json.dumps(my_study_notes))
 
     print(json.dumps({ 'success': True, }))
